@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>淘汰賽產生器</title>
+<title>Tuen Ma Line 賽事計分表</title>
 <style>
 :root{--bg:#0f172a;--card:#1e293b;--line:#334155;--text:#f1f5f9;--muted:#94a3b8;--blue:#3b82f6;--green:#22c55e;--red:#ef4444;--amber:#f59e0b}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -54,6 +54,42 @@ table{width:100%;border-collapse:collapse;font-size:12px;margin-bottom:8px}
 th,td{padding:4px 6px;border-bottom:1px solid var(--line);text-align:left}
 th{color:var(--muted)}
 tr.up td{color:#86efac;font-weight:700}
+table.board th,table.board td{text-align:center}
+table.board th:nth-child(2),table.board td:nth-child(2){text-align:left}
+table.board td.pts{font-weight:800;color:#fcd34d;font-size:14px}
+table.board tr.up td.pts{color:#86efac}
+.score-bar{height:6px;background:#1e293b;border-radius:4px;margin-top:4px;overflow:hidden}
+.score-bar>i{display:block;height:100%;background:linear-gradient(90deg,#3b82f6,#22c55e);border-radius:4px}
+.gm{background:#0f172a;border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px}
+.gm.on{border-color:var(--green)}
+.gm-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 58px 20px 58px minmax(0,1fr);
+  align-items:center;
+  gap:8px;
+  width:100%;
+}
+.gm-name{font-size:13px;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gm-name.left{text-align:right;padding-right:4px}
+.gm-name.right{text-align:left;padding-left:4px}
+.gm-name.win{color:#86efac;font-weight:700}
+.gm-name.lose{opacity:.45}
+.gm input[type=number]{
+  width:58px;height:36px;box-sizing:border-box;
+  background:#1e293b;border:1px solid var(--line);border-radius:6px;
+  color:var(--text);padding:4px;font-size:15px;font-weight:600;text-align:center;
+  justify-self:center;
+}
+.gm input[type=number]:focus{outline:2px solid var(--blue);border-color:var(--blue)}
+.gm-vs{color:var(--muted);font-size:14px;font-weight:700;text-align:center}
+.gm-res{font-size:11px;color:var(--muted);margin-top:6px;text-align:center}
+@media (max-width:420px){
+  .gm-row{grid-template-columns:minmax(0,1fr) 48px 16px 48px minmax(0,1fr);gap:4px}
+  .gm input[type=number]{width:48px;height:32px;font-size:14px}
+}
+.group-overview{overflow-x:auto;margin-bottom:14px}
+.group-overview table{min-width:100%;font-size:12px}
+.group-overview th{white-space:nowrap;background:#0f172a;position:sticky;top:0}
 .scroll{overflow-x:auto;padding-bottom:8px}
 .chart{display:flex;min-width:max-content;align-items:flex-start}
 .col{min-width:190px;padding:0 12px;border-right:1px dashed var(--line)}
@@ -69,7 +105,7 @@ tr.up td{color:#86efac;font-weight:700}
 </head>
 <body>
 <div class="wrap">
-  <h1>淘汰賽產生器</h1>
+  <h1>Tuen Ma Line 賽事計分表</h1>
   <p class="sub">單敗 · 雙敗 · 小組賽四晉二 · 點選晉級</p>
 
   <div class="card">
@@ -90,6 +126,7 @@ tr.up td{color:#86efac;font-weight:700}
       <button type="button" class="s" id="btn8">8隊</button>
       <button type="button" class="s" id="btn16">16隊</button>
       <button type="button" class="s" id="btn32">32隊</button>
+      <button type="button" class="s" id="btn64">64隊</button>
       <button type="button" class="s" id="btnClear">清空</button>
       <button type="button" class="s" id="btnShuffle">打亂</button>
     </div>
@@ -104,7 +141,7 @@ tr.up td{color:#86efac;font-weight:700}
       <label><input type="radio" name="mode" value="random" checked> 隨機</label>
       <label><input type="radio" name="mode" value="seeded"> 種子</label>
     </div>
-    <p class="note">支援 .xlsx / .xls / .csv（Google 表單 → 試算表 → 下載 CSV 或 Excel）。小組賽建議 4 的倍數隊伍。</p>
+    <p class="note">支援 8～64 隊（甚至更多）。Excel/CSV 上傳可用。小組賽（四晉二）建議 4 的倍數：8／16／32／64。</p>
     <div class="row">
       <button type="button" class="g" id="btnGo">產生對戰表</button>
     </div>
@@ -284,14 +321,15 @@ tr.up td{color:#86efac;font-weight:700}
     for (g = 0; g < groupCount; g++) {
       var members = [];
       for (i = 0; i < 4; i++) {
-        members.push(T(list[g * 4 + i], g * 4 + i + 1, { pts: 0, w: 0, l: 0, idx: i }));
+        members.push(T(list[g * 4 + i], g * 4 + i + 1, { pts: 0, w: 0, l: 0, d: 0, gf: 0, ga: 0, idx: i }));
       }
       var pairs = [[0, 1], [2, 3], [0, 2], [1, 3], [0, 3], [1, 2]];
       var ms = pairs.map(function (p) {
         return {
           t1: Object.assign({}, members[p[0]]),
           t2: Object.assign({}, members[p[1]]),
-          winner: null, isBye: false, a: p[0], b: p[1]
+          winner: null, isBye: false, a: p[0], b: p[1],
+          s1: "", s2: ""
         };
       });
       groups.push({ name: "小組 " + String.fromCharCode(65 + g), members: members, matches: ms });
@@ -310,20 +348,64 @@ tr.up td{color:#86efac;font-weight:700}
     return { type: "group", teams: teams.length, byes: 0, groups: groups, groupCount: groupCount, wb: ko.wb };
   }
 
+  function parseScore(v) {
+    if (v === "" || v === null || v === undefined) return null;
+    var n = Number(v);
+    if (isNaN(n) || n < 0) return null;
+    return n;
+  }
+
+  function applyMatchResult(m) {
+    var a = parseScore(m.s1), b = parseScore(m.s2);
+    if (a === null || b === null) {
+      m.winner = null;
+      m.draw = false;
+      return;
+    }
+    if (a > b) { m.winner = 1; m.draw = false; }
+    else if (b > a) { m.winner = 2; m.draw = false; }
+    else { m.winner = null; m.draw = true; } // 平手各得 1 分
+  }
+
   function calcStandings(g) {
-    g.members.forEach(function (m) { m.pts = 0; m.w = 0; m.l = 0; });
+    g.members.forEach(function (m) {
+      m.pts = 0; m.w = 0; m.l = 0; m.d = 0; m.gf = 0; m.ga = 0;
+    });
     g.matches.forEach(function (m) {
-      if (!m.winner) return;
-      var wi = m.winner === 1 ? m.a : m.b;
-      var li = m.winner === 1 ? m.b : m.a;
-      g.members[wi].pts += 3;
-      g.members[wi].w += 1;
-      g.members[li].l += 1;
+      applyMatchResult(m);
+      var s1 = parseScore(m.s1), s2 = parseScore(m.s2);
+      if (s1 === null || s2 === null) return;
+      g.members[m.a].gf += s1;
+      g.members[m.a].ga += s2;
+      g.members[m.b].gf += s2;
+      g.members[m.b].ga += s1;
+      if (m.draw) {
+        g.members[m.a].pts += 1;
+        g.members[m.b].pts += 1;
+        g.members[m.a].d += 1;
+        g.members[m.b].d += 1;
+      } else if (m.winner === 1) {
+        g.members[m.a].pts += 3;
+        g.members[m.a].w += 1;
+        g.members[m.b].l += 1;
+      } else if (m.winner === 2) {
+        g.members[m.b].pts += 3;
+        g.members[m.b].w += 1;
+        g.members[m.a].l += 1;
+      }
     });
     return g.members.slice().sort(function (a, b) {
       if (b.pts !== a.pts) return b.pts - a.pts;
+      var gda = a.gf - a.ga, gdb = b.gf - b.ga;
+      if (gdb !== gda) return gdb - gda;
+      if (b.gf !== a.gf) return b.gf - a.gf;
       return (a.seed || 99) - (b.seed || 99);
     });
+  }
+
+  function matchDecided(m) {
+    var a = parseScore(m.s1), b = parseScore(m.s2);
+    return a !== null && b !== null;
   }
 
   function propagateSingle() {
@@ -419,7 +501,7 @@ tr.up td{color:#86efac;font-weight:700}
   function fillKOFromGroups() {
     var adv = [];
     STATE.groups.forEach(function (g) {
-      var done = g.matches.every(function (m) { return m.winner !== null; });
+      var done = g.matches.every(matchDecided);
       if (!done) { adv.push(null); adv.push(null); return; }
       var ranked = calcStandings(g);
       adv.push(Object.assign({}, ranked[0], { tbd: false, isBye: false }));
@@ -489,11 +571,22 @@ tr.up td{color:#86efac;font-weight:700}
     } catch (e) { showErr(String(e)); }
   };
   window.pickG = function (gi, mi, side) {
+    // 小組賽改為輸入分數，保留函式以免舊呼叫報錯
+  };
+
+  window.setGroupScore = function (gi, mi, side, val) {
     try {
       var m = STATE.groups[gi].matches[mi];
-      m.winner = m.winner === side ? null : side;
+      if (side === 1) m.s1 = val;
+      else m.s2 = val;
+      applyMatchResult(m);
       propagate();
       render();
+      // 保持焦點在剛輸入的框（重新 render 後）
+      setTimeout(function () {
+        var el = document.getElementById("gs-" + gi + "-" + mi + "-" + side);
+        if (el) { el.focus(); el.select && el.select(); }
+      }, 0);
     } catch (e) { showErr(String(e)); }
   };
 
@@ -513,7 +606,12 @@ tr.up td{color:#86efac;font-weight:700}
       });
     }
     if (STATE.type === "group") {
-      STATE.groups.forEach(function (g) { cnt(g.matches); });
+      STATE.groups.forEach(function (g) {
+        g.matches.forEach(function (m) {
+          t++;
+          if (matchDecided(m)) d++;
+        });
+      });
       STATE.wb.forEach(cnt);
     } else {
       STATE.wb.forEach(cnt);
@@ -543,19 +641,80 @@ tr.up td{color:#86efac;font-weight:700}
     return '<div class="' + box + '">' + slot(m.t1, 1, c1) + slot(m.t2, 2, c2) + "</div>";
   }
 
+  function groupMatchHTML(gi, mi, m) {
+    applyMatchResult(m);
+    var on = m.winner || m.draw;
+    var n1 = "win", n2 = "win";
+    if (m.winner === 1) { n1 = "win"; n2 = "lose"; }
+    else if (m.winner === 2) { n1 = "lose"; n2 = "win"; }
+    else if (m.draw) { n1 = ""; n2 = ""; }
+    else { n1 = ""; n2 = ""; }
+    var res = "";
+    if (m.draw) res = "平手（各得 1 分）";
+    else if (m.winner === 1) res = esc(m.t1.name) + " 勝";
+    else if (m.winner === 2) res = esc(m.t2.name) + " 勝";
+    else res = "請輸入雙方分數";
+    var v1 = m.s1 === "" || m.s1 === null || m.s1 === undefined ? "" : m.s1;
+    var v2 = m.s2 === "" || m.s2 === null || m.s2 === undefined ? "" : m.s2;
+    return '<div class="gm' + (on ? " on" : "") + '">' +
+      '<div class="gm-row">' +
+      '<span class="gm-name left ' + n1 + '" title="' + esc(m.t1.name) + '">' + esc(m.t1.name) + "</span>" +
+      '<input type="number" min="0" step="1" id="gs-' + gi + "-" + mi + '-1" value="' + v1 + '" ' +
+      'oninput="setGroupScore(' + gi + "," + mi + ',1,this.value)" onclick="this.select()">' +
+      '<span class="gm-vs">:</span>' +
+      '<input type="number" min="0" step="1" id="gs-' + gi + "-" + mi + '-2" value="' + v2 + '" ' +
+      'oninput="setGroupScore(' + gi + "," + mi + ',2,this.value)" onclick="this.select()">' +
+      '<span class="gm-name right ' + n2 + '" title="' + esc(m.t2.name) + '">' + esc(m.t2.name) + "</span>" +
+      "</div>" +
+      '<div class="gm-res">' + res + "</div></div>";
+  }
+
   function renderGroups() {
-    var html = '<div class="sec b">小組賽（四晉二）</div><div class="groups">';
+    var maxPts = 9;
+    var html = '<div class="sec b">小組賽（四晉二）· 共 ' + STATE.groupCount + ' 組 · ' + (STATE.groupCount * 2) + ' 名晉級淘汰賽</div>';
+    html += '<p class="flow">每場輸入雙方分數決定勝負（高分勝，平手各 1 分）。積分優先，同分比得失分差、總得分。前 2 名晉級。</p>';
+
+    html += '<div class="group-overview"><table class="board"><thead><tr>';
+    html += "<th>組別</th><th>第1（晉級）</th><th>積分</th><th>第2（晉級）</th><th>積分</th><th>第3</th><th>積分</th><th>第4</th><th>積分</th><th>賽況</th></tr></thead><tbody>";
+    STATE.groups.forEach(function (g) {
+      var ranked = calcStandings(g);
+      var done = g.matches.every(matchDecided);
+      var played = g.matches.filter(matchDecided).length;
+      html += "<tr>";
+      html += "<td><strong>" + esc(g.name) + "</strong></td>";
+      for (var i = 0; i < 4; i++) {
+        var m = ranked[i];
+        var nm = m ? esc(m.name) : "—";
+        var pts = m ? m.pts : 0;
+        var cls = done && i < 2 ? ' class="up"' : "";
+        html += "<td" + cls + ">" + nm + (done && i < 2 ? " ↑" : "") + "</td>";
+        html += '<td class="pts"' + cls + ">" + pts + "</td>";
+      }
+      html += "<td>" + played + "/6" + (done ? " ✓" : "") + "</td></tr>";
+    });
+    html += "</tbody></table></div>";
+
+    html += '<div class="groups">';
     STATE.groups.forEach(function (g, gi) {
       var ranked = calcStandings(g);
-      var done = g.matches.every(function (m) { return m.winner !== null; });
-      html += '<div class="gc"><h3>' + esc(g.name) + (done ? " · 已結束" : "") + "</h3>";
-      html += "<table><tr><th>#</th><th>隊伍</th><th>勝</th><th>負</th><th>分</th></tr>";
+      var done = g.matches.every(matchDecided);
+      var played = g.matches.filter(matchDecided).length;
+      html += '<div class="gc"><h3>' + esc(g.name) + " · " + played + "/6 場" + (done ? " · 已結束" : "") + "</h3>";
+      html += '<table class="board"><thead><tr><th>排名</th><th>選手</th><th>勝</th><th>平</th><th>負</th><th>積分</th><th>得分</th><th>失分</th><th>淨勝</th></tr></thead><tbody>';
       ranked.forEach(function (m, idx) {
-        html += '<tr class="' + (done && idx < 2 ? "up" : "") + '"><td>' + (idx + 1) + "</td><td>" + esc(m.name) + (done && idx < 2 ? " ↑" : "") + "</td><td>" + m.w + "</td><td>" + m.l + "</td><td>" + m.pts + "</td></tr>";
+        var gd = m.gf - m.ga;
+        html += '<tr class="' + (done && idx < 2 ? "up" : "") + '">';
+        html += "<td>" + (idx + 1) + (done && idx < 2 ? " ↑" : "") + "</td>";
+        html += "<td>" + esc(m.name) + "</td>";
+        html += "<td>" + m.w + "</td><td>" + m.d + "</td><td>" + m.l + "</td>";
+        html += '<td class="pts">' + m.pts + "</td>";
+        html += "<td>" + m.gf + "</td><td>" + m.ga + "</td><td>" + (gd > 0 ? "+" : "") + gd + "</td>";
+        html += "</tr>";
       });
-      html += "</table>";
+      html += "</tbody></table>";
+      html += '<div style="font-size:12px;color:#94a3b8;margin:6px 0">組內對戰（輸入分數）</div>';
       g.matches.forEach(function (m, mi) {
-        html += matchHTML(m, "pickG(" + gi + "," + mi + ",1)", "pickG(" + gi + "," + mi + ",2)");
+        html += groupMatchHTML(gi, mi, m);
       });
       html += "</div>";
     });
@@ -701,7 +860,9 @@ tr.up td{color:#86efac;font-weight:700}
     try {
       if (STATE.type === "group") {
         STATE.groups.forEach(function (g) {
-          g.matches.forEach(function (m) { m.winner = null; });
+          g.matches.forEach(function (m) {
+            m.winner = null; m.draw = false; m.s1 = ""; m.s2 = "";
+          });
         });
         STATE.wb.forEach(function (r) {
           r.forEach(function (m) {
@@ -887,6 +1048,7 @@ tr.up td{color:#86efac;font-weight:700}
     $("btn8").onclick = function () { fill(8); };
     $("btn16").onclick = function () { fill(16); };
     $("btn32").onclick = function () { fill(32); };
+    $("btn64").onclick = function () { fill(64); };
     $("btnClear").onclick = function () { $("teams").value = ""; $("uploadStatus").textContent = ""; };
     $("btnShuffle").onclick = function () {
       $("teams").value = shuffle(getTeams()).join("\n");
